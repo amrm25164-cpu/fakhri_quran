@@ -1,40 +1,59 @@
 name: Build APK
+
 on:
   push:
     branches: [main, master]
   workflow_dispatch:
+
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Java 17
+        uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
-      - uses: subosito/flutter-action@v2
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
         with:
           channel: stable
           cache: true
-      - name: Generate Android scaffolding (matched to the installed Flutter)
+
+      - name: Generate Android scaffolding
         run: |
           flutter create --platforms=android --org com.fakhri --project-name quran .
           rm -f test/widget_test.dart
           M=android/app/src/main/AndroidManifest.xml
           grep -q android.permission.INTERNET $M || sed -i 's#<application#<uses-permission android:name="android.permission.INTERNET"/>\n    <application#' $M
           sed -i 's#android:label="[^"]*"#android:label="Fakhri Quran"#' $M
+
       - name: Register Uthmanic Hafs font if present
         run: |
           if [ -f assets/fonts/UthmanicHafs1.ttf ]; then
             printf '  fonts:\n    - family: UthmanicHafs\n      fonts:\n        - asset: assets/fonts/UthmanicHafs1.ttf\n' >> pubspec.yaml
           else
-            echo "::warning::assets/fonts/UthmanicHafs1.ttf not found - building with fallback font"
+            echo "::warning::UthmanicHafs1.ttf not found - using fallback font"
           fi
-      - run: flutter pub get
-      - run: flutter analyze --no-fatal-infos
-      - run: flutter test
-      - run: flutter build apk --release
-      - uses: actions/upload-artifact@v4
+
+      - name: Get dependencies
+        run: flutter pub get
+
+      - name: Analyze
+        run: flutter analyze --no-fatal-infos
+
+      - name: Test
+        run: flutter test
+
+      - name: Build APK
+        run: flutter build apk --release
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
         with:
           name: fakhri-quran-apk
           path: build/app/outputs/flutter-apk/app-release.apk
